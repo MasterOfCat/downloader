@@ -8,21 +8,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from aiogram import Bot, Dispatcher, F
-from aiogram.enums import ParseMode
-from aiogram.filters import Command
-from aiogram.filters import CommandStart
+from aiogram import Bot, Dispatcher, types
+from aiogram.dispatcher.filters import Command, Text
 from aiogram.types import (
-    CallbackQuery,
-    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
     LabeledPrice,
-    Message,
-    PreCheckoutQuery,
     ReplyKeyboardMarkup,
 )
+from aiogram.utils import executor
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -113,7 +108,6 @@ TEXTS = {
         "faq_topic_payment": "Оплата",
         "faq_topic_limits": "Ограничения",
         "faq_topic_privacy": "Приватность",
-        "faq_back": "⬅️ Назад",
     },
     "en": {
         "welcome": (
@@ -174,7 +168,6 @@ TEXTS = {
         "faq_topic_payment": "Payment",
         "faq_topic_limits": "Limits",
         "faq_topic_privacy": "Privacy",
-        "faq_back": "⬅️ Back",
     },
 }
 
@@ -268,79 +261,34 @@ def platform_from_url(url: str) -> Optional[str]:
 
 
 def language_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Русский", callback_data="lang:ru"),
-                InlineKeyboardButton(text="English", callback_data="lang:en"),
-            ]
-        ]
+    keyboard = InlineKeyboardMarkup(row_width=2)
+    keyboard.add(
+        InlineKeyboardButton(text="Русский", callback_data="lang:ru"),
+        InlineKeyboardButton(text="English", callback_data="lang:en"),
     )
+    return keyboard
 
 
 def payment_keyboard(lang: str, request_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=t(lang, "pay_button"),
-                    callback_data=f"pay:{request_id}",
-                )
-            ]
-        ]
-    )
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(InlineKeyboardButton(text=t(lang, "pay_button"), callback_data=f"pay:{request_id}"))
+    return keyboard
 
 
 def faq_keyboard(lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=t(lang, "faq_topic_download"), callback_data="faq:download")],
-            [InlineKeyboardButton(text=t(lang, "faq_topic_payment"), callback_data="faq:payment")],
-            [InlineKeyboardButton(text=t(lang, "faq_topic_limits"), callback_data="faq:limits")],
-            [InlineKeyboardButton(text=t(lang, "faq_topic_privacy"), callback_data="faq:privacy")],
-        ]
-    )
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(InlineKeyboardButton(text=t(lang, "faq_topic_download"), callback_data="faq:download"))
+    keyboard.add(InlineKeyboardButton(text=t(lang, "faq_topic_payment"), callback_data="faq:payment"))
+    keyboard.add(InlineKeyboardButton(text=t(lang, "faq_topic_limits"), callback_data="faq:limits"))
+    keyboard.add(InlineKeyboardButton(text=t(lang, "faq_topic_privacy"), callback_data="faq:privacy"))
+    return keyboard
 
 
 def main_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=t(lang, "faq_button")), KeyboardButton(text=t(lang, "lang_button"))],
-            [KeyboardButton(text=t(lang, "help_button"))],
-        ],
-        resize_keyboard=True,
-        input_field_placeholder=t(lang, "send_link"),
-    )
-
-
-async def download_video(url: str) -> Optional[Path]:
-    temp_dir = Path(tempfile.mkdtemp(prefix="tg_video_"))
-    output_template = str(temp_dir / "video.%(ext)s")
-
-    process = await asyncio.create_subprocess_exec(
-        "yt-dlp",
-        "--no-playlist",
-        "--merge-output-format",
-        "mp4",
-        "-f",
-        "mp4/best",
-        "-o",
-        output_template,
-        url,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    _, _ = await process.communicate()
-
-    if process.returncode != 0:
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        return None
-
-    files = list(temp_dir.glob("video.*"))
-    if not files:
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        return None
-    return files[0]
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row(KeyboardButton(t(lang, "faq_button")), KeyboardButton(t(lang, "lang_button")))
+    keyboard.row(KeyboardButton(t(lang, "help_button")))
+    return keyboard
 
 
 def parse_first_url(text: Optional[str]) -> Optional[str]:
@@ -363,212 +311,245 @@ def parse_invoice_payload(payload: str) -> Optional[int]:
     return int(value)
 
 
-async def main() -> None:
-    config = load_config()
-    db = DB()
+async def download_video(url: str) -> Optional[Path]:
+    temp_dir = Path(tempfile.mkdtemp(prefix="tg_video_"))
+    output_template = str(temp_dir / "video.%(ext)s")
 
-    bot = Bot(token=config.bot_token, parse_mode=ParseMode.HTML)
-    dp = Dispatcher()
+    process = await asyncio.create_subprocess_exec(
+        "yt-dlp",
+        "--no-playlist",
+        "--merge-output-format",
+        "mp4",
+        "-f",
+        "mp4/best",
+        "-o",
+        output_template,
+        url,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    await process.communicate()
 
-    async def send_faq(message: Message, lang: str) -> None:
-        await message.answer(
-            f"{t(lang, 'faq_title')}\n\n{t(lang, 'faq_intro')}",
-            reply_markup=faq_keyboard(lang),
-        )
+    if process.returncode != 0:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return None
 
-    @dp.message(CommandStart())
-    async def start(message: Message) -> None:
-        user_id = message.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        user = db.get_user(user_id)
-        lang = user["language"]
+    files = list(temp_dir.glob("video.*"))
+    if not files:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return None
 
-        await message.answer(
-            t(lang, "welcome", price=config.stars_price),
-            reply_markup=main_menu_keyboard(lang),
-        )
-        await message.answer(t(lang, "choose_language"), reply_markup=language_keyboard())
+    return files[0]
 
-    @dp.message(Command("faq"))
-    async def faq_command(message: Message) -> None:
-        user_id = message.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        lang = db.get_user(user_id)["language"]
-        await send_faq(message, lang)
 
-    @dp.message(Command("help"))
-    async def help_command(message: Message) -> None:
-        user_id = message.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        lang = db.get_user(user_id)["language"]
-        await message.answer(t(lang, "help_text"), reply_markup=main_menu_keyboard(lang))
+config = load_config()
+db = DB()
+bot = Bot(token=config.bot_token, parse_mode=types.ParseMode.HTML)
+dp = Dispatcher(bot)
 
-    @dp.callback_query(F.data.startswith("lang:"))
-    async def change_lang(call: CallbackQuery) -> None:
-        user_id = call.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        lang = call.data.split(":", 1)[1]
-        if lang not in TEXTS:
-            lang = config.default_language
 
-        db.set_language(user_id, lang)
-        await call.message.answer(t(lang, "language_set"), reply_markup=main_menu_keyboard(lang))
-        await call.answer()
+async def send_faq(message: types.Message, lang: str) -> None:
+    await message.answer(
+        f"{t(lang, 'faq_title')}\n\n{t(lang, 'faq_intro')}",
+        reply_markup=faq_keyboard(lang),
+    )
 
-    @dp.callback_query(F.data.startswith("faq:"))
-    async def faq_details(call: CallbackQuery) -> None:
-        user_id = call.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        lang = db.get_user(user_id)["language"]
 
-        topic = call.data.split(":", 1)[1]
-        topic_key = {
-            "download": "faq_download",
-            "payment": "faq_payment",
-            "limits": "faq_limits",
-            "privacy": "faq_privacy",
-        }.get(topic)
+async def process_request(message: types.Message, url: str, is_free: bool) -> None:
+    user_id = message.from_user.id
+    user = db.get_user(user_id)
+    lang = user["language"]
 
-        if not topic_key:
-            await call.answer()
-            return
+    await message.answer(t(lang, "processing"))
+    video_path = await download_video(url)
 
-        await call.message.answer(
-            t(lang, topic_key, price=config.stars_price),
-            reply_markup=faq_keyboard(lang),
-        )
-        await call.answer()
+    if video_path is None:
+        await message.answer(t(lang, "download_error"))
+        return
 
-    @dp.callback_query(F.data.startswith("pay:"))
-    async def create_invoice(call: CallbackQuery) -> None:
-        user_id = call.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        user = db.get_user(user_id)
-        lang = user["language"]
-
-        value = call.data.split(":", 1)[1]
-        if not value.isdigit():
-            await call.answer(t(lang, "payment_invalid"), show_alert=True)
-            return
-        request_id = int(value)
-
-        req = db.get_request(request_id)
-        if req is None or req["user_id"] != user_id:
-            await call.answer(t(lang, "payment_cancel"), show_alert=True)
-            return
-
-        await call.message.answer_invoice(
-            title=t(lang, "invoice_title"),
-            description=t(lang, "invoice_desc"),
-            payload=build_invoice_payload(request_id),
-            currency="XTR",
-            prices=[LabeledPrice(label=t(lang, "invoice_title"), amount=config.stars_price)],
-            provider_token="",
-        )
-        await call.answer()
-
-    @dp.pre_checkout_query()
-    async def pre_checkout(pre_checkout_query: PreCheckoutQuery) -> None:
-        request_id = parse_invoice_payload(pre_checkout_query.invoice_payload)
-        if request_id is None:
-            await pre_checkout_query.answer(ok=False, error_message="Invalid payload")
-            return
-
-        req = db.get_request(request_id)
-        if req is None:
-            await pre_checkout_query.answer(ok=False, error_message="Request not found")
-            return
-
-        await pre_checkout_query.answer(ok=True)
-
-    @dp.message(F.successful_payment)
-    async def successful_payment_handler(message: Message) -> None:
-        user_id = message.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        user = db.get_user(user_id)
-        lang = user["language"]
-
-        payload = message.successful_payment.invoice_payload
-        request_id = parse_invoice_payload(payload)
-
-        if request_id is None:
-            await message.answer(t(lang, "payment_cancel"))
-            return
-
-        req = db.get_request(request_id)
-        if req is None or req["user_id"] != user_id:
-            await message.answer(t(lang, "payment_cancel"))
-            return
-
-        db.mark_request_paid(request_id)
-        await message.answer(t(lang, "payment_success"), reply_markup=main_menu_keyboard(lang))
-        await process_request(message, db, config, req["url"], is_free=False)
-
-    async def process_request(message: Message, database: DB, cfg: Config, url: str, is_free: bool) -> None:
-        user_id = message.from_user.id
-        user = database.get_user(user_id)
-        lang = user["language"]
-
-        await message.answer(t(lang, "processing"))
-        video_path = await download_video(url)
-
-        if video_path is None:
-            await message.answer(t(lang, "download_error"))
-            return
-
+    try:
         size_mb = video_path.stat().st_size / (1024 * 1024)
-        if size_mb > cfg.max_video_size_mb:
+        if size_mb > config.max_video_size_mb:
             await message.answer(t(lang, "video_too_big"))
-            shutil.rmtree(video_path.parent, ignore_errors=True)
             return
 
-        try:
-            await message.answer_video(FSInputFile(video_path))
-            if is_free:
-                database.mark_free_used(user_id)
-        finally:
-            shutil.rmtree(video_path.parent, ignore_errors=True)
+        await message.answer_video(types.InputFile(str(video_path)))
+        if is_free:
+            db.mark_free_used(user_id)
+    finally:
+        shutil.rmtree(video_path.parent, ignore_errors=True)
 
-    @dp.message(F.text)
-    async def on_text(message: Message) -> None:
-        user_id = message.from_user.id
-        db.ensure_user(user_id, config.default_language)
-        user = db.get_user(user_id)
-        lang = user["language"]
 
-        text = (message.text or "").strip()
-        if text in {t(lang, "faq_button"), "/faq"}:
-            await send_faq(message, lang)
-            return
-        if text in {t(lang, "lang_button"), "/language"}:
-            await message.answer(t(lang, "choose_language"), reply_markup=language_keyboard())
-            return
-        if text in {t(lang, "help_button"), "/help"}:
-            await message.answer(t(lang, "help_text"), reply_markup=main_menu_keyboard(lang))
-            return
+@dp.message_handler(commands=["start"])
+async def start(message: types.Message) -> None:
+    user_id = message.from_user.id
+    db.ensure_user(user_id, config.default_language)
+    user = db.get_user(user_id)
+    lang = user["language"]
 
-        url = parse_first_url(text)
-        if not url:
-            await message.answer(t(lang, "send_link"), reply_markup=main_menu_keyboard(lang))
-            return
+    await message.answer(
+        t(lang, "welcome", price=config.stars_price),
+        reply_markup=main_menu_keyboard(lang),
+    )
+    await message.answer(t(lang, "choose_language"), reply_markup=language_keyboard())
 
-        platform = platform_from_url(url)
-        if not platform:
-            await message.answer(t(lang, "unsupported"), reply_markup=main_menu_keyboard(lang))
-            return
 
-        if user["free_used"] == 0:
-            await process_request(message, db, config, url, is_free=True)
-            return
+@dp.message_handler(Command("faq"))
+async def faq_command(message: types.Message) -> None:
+    user_id = message.from_user.id
+    db.ensure_user(user_id, config.default_language)
+    lang = db.get_user(user_id)["language"]
+    await send_faq(message, lang)
 
-        request_id = db.create_request(user_id=user_id, url=url, platform=platform, paid=0)
-        await message.answer(
-            t(lang, "payment_needed", price=config.stars_price),
-            reply_markup=payment_keyboard(lang, request_id),
-        )
 
-    await dp.start_polling(bot)
+@dp.message_handler(Command("help"))
+async def help_command(message: types.Message) -> None:
+    user_id = message.from_user.id
+    db.ensure_user(user_id, config.default_language)
+    lang = db.get_user(user_id)["language"]
+    await message.answer(t(lang, "help_text"), reply_markup=main_menu_keyboard(lang))
+
+
+@dp.callback_query_handler(Text(startswith="lang:"))
+async def change_lang(call: types.CallbackQuery) -> None:
+    user_id = call.from_user.id
+    db.ensure_user(user_id, config.default_language)
+
+    lang = call.data.split(":", 1)[1]
+    if lang not in TEXTS:
+        lang = config.default_language
+
+    db.set_language(user_id, lang)
+    await call.message.answer(t(lang, "language_set"), reply_markup=main_menu_keyboard(lang))
+    await call.answer()
+
+
+@dp.callback_query_handler(Text(startswith="faq:"))
+async def faq_details(call: types.CallbackQuery) -> None:
+    user_id = call.from_user.id
+    db.ensure_user(user_id, config.default_language)
+    lang = db.get_user(user_id)["language"]
+
+    topic = call.data.split(":", 1)[1]
+    topic_key = {
+        "download": "faq_download",
+        "payment": "faq_payment",
+        "limits": "faq_limits",
+        "privacy": "faq_privacy",
+    }.get(topic)
+
+    if not topic_key:
+        await call.answer()
+        return
+
+    await call.message.answer(t(lang, topic_key, price=config.stars_price), reply_markup=faq_keyboard(lang))
+    await call.answer()
+
+
+@dp.callback_query_handler(Text(startswith="pay:"))
+async def create_invoice(call: types.CallbackQuery) -> None:
+    user_id = call.from_user.id
+    db.ensure_user(user_id, config.default_language)
+    lang = db.get_user(user_id)["language"]
+
+    value = call.data.split(":", 1)[1]
+    if not value.isdigit():
+        await call.answer(t(lang, "payment_invalid"), show_alert=True)
+        return
+
+    request_id = int(value)
+    req = db.get_request(request_id)
+    if req is None or req["user_id"] != user_id:
+        await call.answer(t(lang, "payment_cancel"), show_alert=True)
+        return
+
+    await bot.send_invoice(
+        chat_id=call.message.chat.id,
+        title=t(lang, "invoice_title"),
+        description=t(lang, "invoice_desc"),
+        payload=build_invoice_payload(request_id),
+        provider_token="",
+        currency="XTR",
+        prices=[LabeledPrice(label=t(lang, "invoice_title"), amount=config.stars_price)],
+        start_parameter="video-download",
+    )
+    await call.answer()
+
+
+@dp.pre_checkout_query_handler(lambda q: True)
+async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery) -> None:
+    request_id = parse_invoice_payload(pre_checkout_query.invoice_payload)
+    if request_id is None:
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Invalid payload")
+        return
+
+    req = db.get_request(request_id)
+    if req is None:
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Request not found")
+        return
+
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+
+@dp.message_handler(content_types=types.ContentTypes.SUCCESSFUL_PAYMENT)
+async def successful_payment_handler(message: types.Message) -> None:
+    user_id = message.from_user.id
+    db.ensure_user(user_id, config.default_language)
+    lang = db.get_user(user_id)["language"]
+
+    request_id = parse_invoice_payload(message.successful_payment.invoice_payload)
+    if request_id is None:
+        await message.answer(t(lang, "payment_cancel"))
+        return
+
+    req = db.get_request(request_id)
+    if req is None or req["user_id"] != user_id:
+        await message.answer(t(lang, "payment_cancel"))
+        return
+
+    db.mark_request_paid(request_id)
+    await message.answer(t(lang, "payment_success"), reply_markup=main_menu_keyboard(lang))
+    await process_request(message, req["url"], is_free=False)
+
+
+@dp.message_handler(content_types=types.ContentTypes.TEXT)
+async def on_text(message: types.Message) -> None:
+    user_id = message.from_user.id
+    db.ensure_user(user_id, config.default_language)
+    user = db.get_user(user_id)
+    lang = user["language"]
+
+    text = (message.text or "").strip()
+    if text in {t(lang, "faq_button"), "/faq"}:
+        await send_faq(message, lang)
+        return
+    if text in {t(lang, "lang_button"), "/language"}:
+        await message.answer(t(lang, "choose_language"), reply_markup=language_keyboard())
+        return
+    if text in {t(lang, "help_button"), "/help"}:
+        await message.answer(t(lang, "help_text"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    url = parse_first_url(text)
+    if not url:
+        await message.answer(t(lang, "send_link"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    platform = platform_from_url(url)
+    if not platform:
+        await message.answer(t(lang, "unsupported"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    if user["free_used"] == 0:
+        await process_request(message, url, is_free=True)
+        return
+
+    request_id = db.create_request(user_id=user_id, url=url, platform=platform, paid=0)
+    await message.answer(
+        t(lang, "payment_needed", price=config.stars_price),
+        reply_markup=payment_keyboard(lang, request_id),
+    )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    executor.start_polling(dp, skip_updates=True)
