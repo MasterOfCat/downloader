@@ -70,6 +70,8 @@ TEXTS = {
         "payment_success": "✅ Оплата прошла. Начинаю скачивание.",
         "payment_cancel": "Платёж не найден. Отправьте ссылку ещё раз.",
         "payment_invalid": "Не удалось создать платёж. Попробуйте отправить ссылку снова.",
+        "payment_already_paid": "Этот запрос уже оплачен. Отправьте новую ссылку для следующего скачивания.",
+        "payment_amount_mismatch": "Сумма платежа не совпадает с ценой скачивания.",
         "faq_title": "❓ FAQ — Частые вопросы",
         "faq_intro": "Выберите раздел, и я покажу ответ.",
         "faq_download": (
@@ -130,6 +132,8 @@ TEXTS = {
         "payment_success": "✅ Payment successful. Starting download.",
         "payment_cancel": "Payment was not found. Please send the link again.",
         "payment_invalid": "Unable to create payment. Please send the link again.",
+        "payment_already_paid": "This request is already paid. Send a new link for the next download.",
+        "payment_amount_mismatch": "Payment amount does not match the download price.",
         "faq_title": "❓ FAQ",
         "faq_intro": "Choose a section and I will show the answer.",
         "faq_download": (
@@ -462,6 +466,9 @@ async def create_invoice(call: types.CallbackQuery) -> None:
     if req is None or req["user_id"] != user_id:
         await call.answer(t(lang, "payment_cancel"), show_alert=True)
         return
+    if req["paid"] == 1:
+        await call.answer(t(lang, "payment_already_paid"), show_alert=True)
+        return
 
     await bot.send_invoice(
         chat_id=call.message.chat.id,
@@ -487,6 +494,12 @@ async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery) -> None:
     if req is None:
         await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Request not found")
         return
+    if req["user_id"] != pre_checkout_query.from_user.id:
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Invalid request owner")
+        return
+    if req["paid"] == 1:
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Request already paid")
+        return
 
     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
@@ -505,6 +518,14 @@ async def successful_payment_handler(message: types.Message) -> None:
     req = db.get_request(request_id)
     if req is None or req["user_id"] != user_id:
         await message.answer(t(lang, "payment_cancel"))
+        return
+    if req["paid"] == 1:
+        await message.answer(t(lang, "payment_already_paid"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    payment = message.successful_payment
+    if payment.currency != "XTR" or payment.total_amount != config.stars_price:
+        await message.answer(t(lang, "payment_amount_mismatch"), reply_markup=main_menu_keyboard(lang))
         return
 
     db.mark_request_paid(request_id)
