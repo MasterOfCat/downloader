@@ -51,31 +51,33 @@ def load_config() -> Config:
 TEXTS = {
     "ru": {
         "welcome": (
-            "👋 Привет! Я бот для скачивания видео из TikTok и YouTube.\n\n"
+            "👋 Привет! Я бот для скачивания медиа из TikTok, YouTube и Instagram.\n\n"
             "🎁 Первое скачивание бесплатно.\n"
             "⭐️ Все следующие скачивания — за {price} Stars.\n\n"
-            "Просто пришли ссылку на видео."
+            "Просто пришли ссылку на пост или видео."
         ),
         "language_set": "Язык переключён на русский.",
         "choose_language": "Выберите язык:",
-        "unsupported": "Пока я умею работать только с ссылками TikTok и YouTube.",
-        "processing": "⏬ Скачиваю видео... Это может занять до минуты.",
-        "download_error": "Не удалось скачать видео. Проверь ссылку и попробуй ещё раз.",
-        "video_too_big": "Видео слишком большое для отправки в Telegram.",
-        "send_link": "Отправь ссылку на видео из TikTok или YouTube.",
+        "unsupported": "Пока я умею работать только с ссылками TikTok, YouTube и Instagram.",
+        "processing": "⏬ Скачиваю медиа... Это может занять до минуты.",
+        "download_error": "Не удалось скачать медиа. Проверь ссылку и попробуй ещё раз.",
+        "video_too_big": "Файл слишком большой для отправки в Telegram.",
+        "send_link": "Отправь ссылку на пост/видео из TikTok, YouTube или Instagram.",
         "payment_needed": "Для следующего скачивания нужна оплата: {price} Stars.",
         "pay_button": "Оплатить ⭐️",
-        "invoice_title": "Скачивание видео",
-        "invoice_desc": "Одно скачивание видео из TikTok/YouTube",
+        "invoice_title": "Скачивание медиа",
+        "invoice_desc": "Одно скачивание медиа из TikTok/YouTube/Instagram",
         "payment_success": "✅ Оплата прошла. Начинаю скачивание.",
         "payment_cancel": "Платёж не найден. Отправьте ссылку ещё раз.",
         "payment_invalid": "Не удалось создать платёж. Попробуйте отправить ссылку снова.",
+        "payment_already_paid": "Этот запрос уже оплачен. Отправьте новую ссылку для следующего скачивания.",
+        "payment_amount_mismatch": "Сумма платежа не совпадает с ценой скачивания.",
         "faq_title": "❓ FAQ — Частые вопросы",
         "faq_intro": "Выберите раздел, и я покажу ответ.",
         "faq_download": (
-            "📥 <b>Как скачать видео?</b>\n"
+            "📥 <b>Как скачать медиа?</b>\n"
             "1) Нажмите /start (если запускаете впервые).\n"
-            "2) Отправьте ссылку на TikTok или YouTube.\n"
+            "2) Отправьте ссылку на TikTok, YouTube или Instagram.\n"
             "3) Я скачаю и пришлю файл."
         ),
         "faq_payment": (
@@ -86,7 +88,7 @@ TEXTS = {
         ),
         "faq_limits": (
             "📌 <b>Ограничения</b>\n"
-            "• Поддерживаются только tiktok.com, youtube.com и youtu.be.\n"
+            "• Поддерживаются tiktok.com, youtube.com, youtu.be и instagram.com.\n"
             "• Очень большие видео Telegram может не принять.\n"
             "• Некоторые ролики могут быть недоступны из-за региональных ограничений."
         ),
@@ -100,7 +102,7 @@ TEXTS = {
         "help_button": "ℹ️ Как пользоваться",
         "help_text": (
             "ℹ️ <b>Как пользоваться ботом</b>\n"
-            "• Отправьте ссылку TikTok/YouTube.\n"
+            "• Отправьте ссылку TikTok/YouTube/Instagram.\n"
             "• Для часто задаваемых вопросов нажмите кнопку FAQ.\n"
             "• Для смены языка нажмите кнопку Язык."
         ),
@@ -111,31 +113,33 @@ TEXTS = {
     },
     "en": {
         "welcome": (
-            "👋 Hi! I'm a bot for downloading videos from TikTok and YouTube.\n\n"
+            "👋 Hi! I'm a bot for downloading media from TikTok, YouTube, and Instagram.\n\n"
             "🎁 First download is free.\n"
             "⭐️ All next downloads cost {price} Stars.\n\n"
-            "Just send me a video link."
+            "Just send me a post or video link."
         ),
         "language_set": "Language switched to English.",
         "choose_language": "Choose a language:",
-        "unsupported": "I currently support TikTok and YouTube links only.",
-        "processing": "⏬ Downloading video... It may take up to a minute.",
-        "download_error": "Could not download this video. Please check the link and try again.",
-        "video_too_big": "The video is too large to send via Telegram.",
-        "send_link": "Send a TikTok or YouTube video link.",
+        "unsupported": "I currently support TikTok, YouTube, and Instagram links only.",
+        "processing": "⏬ Downloading media... It may take up to a minute.",
+        "download_error": "Could not download this media. Please check the link and try again.",
+        "video_too_big": "The file is too large to send via Telegram.",
+        "send_link": "Send a TikTok, YouTube, or Instagram link.",
         "payment_needed": "Next download requires payment: {price} Stars.",
         "pay_button": "Pay ⭐️",
-        "invoice_title": "Video download",
-        "invoice_desc": "One TikTok/YouTube video download",
+        "invoice_title": "Media download",
+        "invoice_desc": "One TikTok/YouTube/Instagram media download",
         "payment_success": "✅ Payment successful. Starting download.",
         "payment_cancel": "Payment was not found. Please send the link again.",
         "payment_invalid": "Unable to create payment. Please send the link again.",
+        "payment_already_paid": "This request is already paid. Send a new link for the next download.",
+        "payment_amount_mismatch": "Payment amount does not match the download price.",
         "faq_title": "❓ FAQ",
         "faq_intro": "Choose a section and I will show the answer.",
         "faq_download": (
-            "📥 <b>How to download a video?</b>\n"
+            "📥 <b>How to download media?</b>\n"
             "1) Press /start (first launch).\n"
-            "2) Send a TikTok or YouTube link.\n"
+            "2) Send a TikTok, YouTube, or Instagram link.\n"
             "3) I download and send the file."
         ),
         "faq_payment": (
@@ -146,7 +150,7 @@ TEXTS = {
         ),
         "faq_limits": (
             "📌 <b>Limits</b>\n"
-            "• Supported links: tiktok.com, youtube.com, youtu.be.\n"
+            "• Supported links: tiktok.com, youtube.com, youtu.be, instagram.com.\n"
             "• Very large videos may be rejected by Telegram.\n"
             "• Some videos can be unavailable due to regional restrictions."
         ),
@@ -160,7 +164,7 @@ TEXTS = {
         "help_button": "ℹ️ How to use",
         "help_text": (
             "ℹ️ <b>How to use this bot</b>\n"
-            "• Send a TikTok/YouTube link.\n"
+            "• Send a TikTok/YouTube/Instagram link.\n"
             "• Use FAQ button for common questions.\n"
             "• Use Language button to switch language."
         ),
@@ -257,6 +261,8 @@ def platform_from_url(url: str) -> Optional[str]:
         return "tiktok"
     if "youtube.com" in lowered or "youtu.be" in lowered:
         return "youtube"
+    if "instagram.com" in lowered:
+        return "instagram"
     return None
 
 
@@ -311,7 +317,7 @@ def parse_invoice_payload(payload: str) -> Optional[int]:
     return int(value)
 
 
-async def download_video(url: str) -> Optional[Path]:
+async def download_media(url: str) -> Optional[Path]:
     temp_dir = Path(tempfile.mkdtemp(prefix="tg_video_"))
     output_template = str(temp_dir / "video.%(ext)s")
 
@@ -334,7 +340,7 @@ async def download_video(url: str) -> Optional[Path]:
         shutil.rmtree(temp_dir, ignore_errors=True)
         return None
 
-    files = list(temp_dir.glob("video.*"))
+    files = [f for f in temp_dir.glob("video.*") if f.is_file()]
     if not files:
         shutil.rmtree(temp_dir, ignore_errors=True)
         return None
@@ -361,23 +367,28 @@ async def process_request(message: types.Message, url: str, is_free: bool) -> No
     lang = user["language"]
 
     await message.answer(t(lang, "processing"))
-    video_path = await download_video(url)
+    media_path = await download_media(url)
 
-    if video_path is None:
+    if media_path is None:
         await message.answer(t(lang, "download_error"))
         return
 
     try:
-        size_mb = video_path.stat().st_size / (1024 * 1024)
+        size_mb = media_path.stat().st_size / (1024 * 1024)
         if size_mb > config.max_video_size_mb:
             await message.answer(t(lang, "video_too_big"))
             return
 
-        await message.answer_video(types.InputFile(str(video_path)))
+        suffix = media_path.suffix.lower()
+        if suffix in {".jpg", ".jpeg", ".png", ".webp"}:
+            await message.answer_photo(types.InputFile(str(media_path)))
+        else:
+            await message.answer_video(types.InputFile(str(media_path)))
+
         if is_free:
             db.mark_free_used(user_id)
     finally:
-        shutil.rmtree(video_path.parent, ignore_errors=True)
+        shutil.rmtree(media_path.parent, ignore_errors=True)
 
 
 @dp.message_handler(commands=["start"])
@@ -462,6 +473,9 @@ async def create_invoice(call: types.CallbackQuery) -> None:
     if req is None or req["user_id"] != user_id:
         await call.answer(t(lang, "payment_cancel"), show_alert=True)
         return
+    if req["paid"] == 1:
+        await call.answer(t(lang, "payment_already_paid"), show_alert=True)
+        return
 
     await bot.send_invoice(
         chat_id=call.message.chat.id,
@@ -487,6 +501,12 @@ async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery) -> None:
     if req is None:
         await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Request not found")
         return
+    if req["user_id"] != pre_checkout_query.from_user.id:
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Invalid request owner")
+        return
+    if req["paid"] == 1:
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message="Request already paid")
+        return
 
     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
@@ -505,6 +525,14 @@ async def successful_payment_handler(message: types.Message) -> None:
     req = db.get_request(request_id)
     if req is None or req["user_id"] != user_id:
         await message.answer(t(lang, "payment_cancel"))
+        return
+    if req["paid"] == 1:
+        await message.answer(t(lang, "payment_already_paid"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    payment = message.successful_payment
+    if payment.currency != "XTR" or payment.total_amount != config.stars_price:
+        await message.answer(t(lang, "payment_amount_mismatch"), reply_markup=main_menu_keyboard(lang))
         return
 
     db.mark_request_paid(request_id)
